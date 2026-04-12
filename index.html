@@ -1288,7 +1288,29 @@
         }
       }
 
-      // Fact 3: about the test itself
+      // Fact 3: how much headroom is left
+      const absFloor = 1.5; // lowest achievable floor across any region
+      if (bestDE < 99 && played.length > 0) {
+        const gap = bestDE - absFloor;
+        if (gap <= 0.1) {
+          facts.push({
+            label: 'ceiling',
+            text: `You've essentially <strong>hit the game's floor</strong>. At ΔE 1.5 you're at the boundary of what can reliably be rendered on an sRGB display — real-world limits, not human ones.`,
+          });
+        } else {
+          // Find the region with the most headroom left
+          const mostRoom = [...played].sort((a,b) => b.minDE - a.minDE)[0];
+          const regionFloor = floorDE(mostRoom.i);
+          const regionGap   = (mostRoom.minDE - regionFloor).toFixed(1);
+          const regionName  = HUE_REGIONS[mostRoom.i].name;
+          facts.push({
+            label: `−${gap.toFixed(1)} ΔE`,
+            text: `<strong>You have ${gap.toFixed(1)} ΔE units of headroom left</strong> — the game's floor is ΔE ${absFloor}. Your weakest region (${regionName}) still has ${regionGap} units to close. Color discrimination is a trainable skill; repeated exposure measurably lowers your detection threshold.`,
+          });
+        }
+      }
+
+      // Fact 4: about the test itself
       facts.push({
         label: 'FM100',
         text: `This game is inspired by the <strong>Farnsworth-Munsell 100 Hue Test</strong> (1943), still used clinically to detect color deficiency and measure color discrimination ability. The ΔE unit is CIEDE2000 — the international standard since 2001.`,
