@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="description" content="A color discernment game — one swatch is different. Can you find it?">
+  <title>ChromaSense</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #14141a;
+      --border: #2a2a35;
+      --text-primary: #e8e8f0;
+      --text-muted: #6a6a80;
+      --accent: #7c6af5;
+      --danger: #e05252;
+      --success: #52c98a;
+      --swatch-gap: clamp(6px, 2vw, 10px);
+      --swatch-radius: 10px;
+      --timer-height: 4px;
+      --max-game: 480px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      height: 100%;
+      background: #050508;
+    }
+
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      /* Center the game column on desktop */
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── GAME COLUMN ── */
+    #game-wrap {
+      width: 100%;
+      max-width: var(--max-game);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: var(--bg);
+      /* Subtle border on wide screens */
+      box-shadow: 0 0 0 1px #1a1a24;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .screen.hidden { display: none !important; }
+
+    /* ── IDLE ── */
+    #screen-idle {
+      justify-content: center;
+      gap: 28px;
+      padding: 52px 32px calc(env(safe-area-inset-bottom, 0px) + 52px);
+    }
+
+    .logo { text-align: center; }
+
+    .logo h1 {
+      font-family: ui-monospace, 'Cascadia Code', 'Courier New', monospace;
+      font-size: clamp(2rem, 9vw, 2.8rem);
+      letter-spacing: 0.14em;
+      font-weight: 700;
+    }
+
+    .logo p {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: 8px;
+      letter-spacing: 0.06em;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 18px 40px;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      width: 100%;
+      max-width: 300px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:active { transform: scale(0.97); }
+
+    #idle-stats {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+
+    .how-it-works {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .how-it-works h3 {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .how-it-works p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+
+    /* ── PLAYING ── */
+    #screen-playing {
+      justify-content: flex-start;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    #hud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 12px;
+      width: 100%;
+    }
+
+    #lives {
+      font-size: 1.1rem;
+      letter-spacing: 0.14em;
+      color: var(--danger);
+      min-width: 60px;
+    }
+
+    #score-display {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    #streak-display {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 0.95rem;
+      color: var(--accent);
+      min-width: 60px;
+      text-align: right;
+    }
+
+    #timer-bar-wrap {
+      width: 100%;
+      height: var(--timer-height);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    #timer-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent);
+      transform-origin: left center;
+      will-change: transform;
+    }
+
+    #swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--swatch-gap);
+      padding: clamp(16px, 4vw, 28px);
+      width: 100%;
+      flex: 1;
+      align-content: center;
+    }
+
+    .swatch {
+      aspect-ratio: 1;
+      border-radius: var(--swatch-radius);
+      border: none;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+      transition: transform 0.1s ease;
+    }
+
+    .swatch:focus-visible {
+      box-shadow: 0 0 0 3px var(--accent), 0 0 0 5px var(--bg);
+    }
+
+    .swatch:active { transform: scale(0.94); }
+
+    @keyframes swatch-in {
+      from { transform: scale(0.8); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .swatch.animate-in {
+      animation: swatch-in 0.22s ease-out both;
+    }
+
+    /* ── BIG CORRECT FLASH ── */
+    #correct-flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 90;
+      opacity: 0;
+    }
+
+    @keyframes big-flash {
+      0%   { opacity: 1; }
+      35%  { opacity: 0.8; }
+      100% { opacity: 0; }
+    }
+
+    #correct-flash.active {
+      animation: big-flash 0.55s ease-out forwards;
+    }
+
+    /* ── SWATCH ANIMATIONS ── */
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(82,201,138,1); transform: scale(1); }
+      50%  { box-shadow: 0 0 0 18px rgba(82,201,138,0.2); transform: scale(1.06); }
+      100% { box-shadow: 0 0 0 30px rgba(82,201,138,0); transform: scale(1); }
+    }
+
+    .swatch.correct-anim {
+      animation: pulse-ring 0.5s ease-out;
+      z-index: 2;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      18%     { transform: translateX(-8px); }
+      36%     { transform: translateX(8px); }
+      54%     { transform: translateX(-8px); }
+      72%     { transform: translateX(8px); }
+      90%     { transform: translateX(-3px); }
+    }
+
+    .swatch.wrong-anim {
+      animation: shake 0.26s ease-out;
+    }
+
+    #round-info {
+      padding: 8px 24px 18px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-align: center;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: opacity 0.35s;
+      flex-shrink: 0;
+    }
+
+    #round-info.elite { color: var(--accent); font-weight: 600; }
+
+    /* ── SCORE FLOAT ── */
+    @keyframes score-float {
+      0%   { opacity: 1; transform: translateX(-50%) translateY(0);     }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
+    }
+
+    .score-float {
+      position: fixed;
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--success);
+      pointer-events: none;
+      animation: score-float 0.7s ease-out forwards;
+      z-index: 95;
+      white-space: nowrap;
+      text-shadow: 0 2px 12px rgba(82,201,138,0.6);
+    }
+
+    /* ── GAME OVER ── */
+    #screen-gameover {
+      justify-content: center;
+      gap: 18px;
+      padding: 40px 32px calc(env(safe-area-inset-bottom, 0px) + 40px);
+      overflow-y: auto;
+    }
+
+    #gameover-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    #player-rank {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: clamp(1.6rem, 9vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1;
+    }
+
+    #player-rank-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-align: center;
+      margin-top: -4px;
+    }
+
+    #final-score {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: clamp(2.8rem, 15vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    #new-best {
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-top: -6px;
+    }
+
+    #hue-wheel-wrap {
+      width: min(220px, 58vw);
+      height: min(220px, 58vw);
+      flex-shrink: 0;
+    }
+
+    #hue-wheel-wrap svg { width: 100%; height: 100%; }
+
+    #weakness-stats {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 2;
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+    }
+
+    #weakness-stats span { color: var(--text-primary); }
+
+    #science-panel {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    #science-panel h3 {
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .science-fact {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .science-fact:last-child { margin-bottom: 0; }
+
+    .science-fact .sci-de {
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 56px;
+      padding-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .science-fact p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .science-fact p strong { color: var(--text-primary); font-weight: 600; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 300px;
+      flex-shrink: 0;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+    .btn-secondary:active { transform: scale(0.97); }
+
+    .btn-secondary.btn-share {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary.btn-share:hover { opacity: 0.88; background: var(--accent); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 11px 20px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      z-index: 200;
+      opacity: 1;
+      transition: opacity 0.3s;
+      white-space: nowrap;
+    }
+
+    #toast.hidden { opacity: 0; pointer-events: none; }
+
+    /* ── ARIA LIVE ── */
+    #aria-live {
+      position: absolute;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+    }
+
+    /* ── REDUCED MOTION ── */
+    @media (prefers-reduced-motion: reduce) {
+      .swatch.animate-in   { animation: none; opacity: 1; transform: scale(1); }
+      .swatch.correct-anim { animation: none; }
+      .swatch.wrong-anim   { animation: none; outline: 2px solid var(--danger); }
+      .score-float         { display: none; }
+      #correct-flash       { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <div id="aria-live" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- IDLE -->
+    <div id="screen-idle" class="screen">
+      <div class="logo">
+        <h1>CHROMASENSE</h1>
+        <p>how sharp are your eyes</p>
+      </div>
+      <button class="btn-primary" id="btn-play">PLAY NOW</button>
+      <div id="idle-stats" class="hidden"></div>
+      <div class="how-it-works">
+        <h3>How it works</h3>
+        <p>A grid of color swatches appears.<br>
+           One is slightly different. Tap it.<br>
+           Colors get harder as you improve.<br>
+           Based on the Farnsworth-Munsell test.</p>
+      </div>
+    </div>
+
+    <!-- PLAYING -->
+    <div id="screen-playing" class="screen hidden">
+      <div id="hud">
+        <div id="lives" aria-label="lives remaining"></div>
+        <div id="score-display" aria-label="score">0</div>
+        <div id="streak-display" aria-label="streak"></div>
+      </div>
+      <div id="timer-bar-wrap" role="progressbar" aria-label="time remaining"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+        <div id="timer-bar"></div>
+      </div>
+      <div id="swatch-grid" role="grid" aria-label="color swatches, find the odd one out"></div>
+      <div id="round-info" aria-hidden="true"></div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="screen-gameover" class="screen hidden">
+      <div id="gameover-label">GAME OVER</div>
+      <div id="player-rank"></div>
+      <div id="player-rank-sub"></div>
+      <div id="final-score">0</div>
+      <div id="new-best" class="hidden">NEW PERSONAL BEST</div>
+      <div id="hue-wheel-wrap"></div>
+      <div id="weakness-stats"></div>
+      <div id="science-panel"></div>
+      <div class="btn-row">
+        <button class="btn-secondary btn-share" id="btn-share">SHARE</button>
+        <button class="btn-secondary" id="btn-retry">RETRY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- fullscreen correct flash — outside game-wrap so it covers everything -->
+  <div id="correct-flash"></div>
+  <div id="toast" class="hidden"></div>
+
+  <script type="module">
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════
+    // CONSTANTS
+    // ═══════════════════════════════════════════════════════════
+
+    const STORAGE_KEY   = 'chromasense_v2';
+    const ROUND_TIME    = 4500;
+    const SWATCHES      = 9;
+    const ADVANCE_DELAY = 1000;
+    const NUM_REGIONS   = 9;
+
+    // 8 chromatic hue regions + 1 neutral/grey
+    const HUE_REGIONS = [
+      { name: 'Red',          lo: 340, hi: 20,  wrap: true,  neutral: false },
+      { name: 'Orange',       lo: 20,  hi: 50,  wrap: false, neutral: false },
+      { name: 'Yellow',       lo: 50,  hi: 80,  wrap: false, neutral: false },
+      { name: 'Yellow-Green', lo: 80,  hi: 110, wrap: false, neutral: false },
+      { name: 'Green',        lo: 110, hi: 150, wrap: false, neutral: false },
+      { name: 'Cyan',         lo: 150, hi: 210, wrap: false, neutral: false },
+      { name: 'Blue',         lo: 210, hi: 270, wrap: false, neutral: false },
+      { name: 'Purple',       lo: 270, hi: 340, wrap: false, neutral: false },
+      { name: 'Neutral',      lo: 0,   hi: 360, wrap: false, neutral: true  },
+    ];
+
+    const HARD_REGIONS = new Set([2, 3, 5, 8]); // Yellow, Yellow-Green, Cyan, Neutral
+
+    const SUPPORTS_OKLCH = CSS.supports('color', 'oklch(0.5 0.1 180)');
+
+    // Player rank tiers — keyed on best ΔE achieved (lower = better)
+    const RANKS = [
+      { maxDE: 2.2,  title: 'SAVANT',         sub: 'superhuman color vision',       color: '#ffd700' },
+      { maxDE: 4.5,  title: 'GIFTED',          sub: 'exceptional hue sense',         color: '#7c6af5' },
+      { maxDE: 8.0,  title: 'AVERAGE',         sub: 'normal color perception',       color: '#52c98a' },
+      { maxDE: 13.5, title: 'FAILING ARTIST',  sub: 'consider a different career',   color: '#e08a52' },
+      { maxDE: 99,   title: 'POOR',            sub: 'is your monitor plugged in?',   color: '#e05252' },
+    ];
+
+    // ═══════════════════════════════════════════════════════════
+    // COLOR MATH
+    // ═══════════════════════════════════════════════════════════
+
+    function deltaE2000(c1, c2) {
+      const { L: L1, a: a1, b: b1 } = c1;
+      const { L: L2, a: a2, b: b2 } = c2;
+
+      const C1ab = Math.sqrt(a1*a1 + b1*b1);
+      const C2ab = Math.sqrt(a2*a2 + b2*b2);
+      const Cavg = (C1ab + C2ab) / 2;
+      const Cavg7 = Math.pow(Cavg, 7);
+      const G = 0.5 * (1 - Math.sqrt(Cavg7 / (Cavg7 + Math.pow(25, 7))));
+
+      const a1p = a1*(1+G), a2p = a2*(1+G);
+      const C1p = Math.sqrt(a1p*a1p + b1*b1);
+      const C2p = Math.sqrt(a2p*a2p + b2*b2);
+
+      const h1p = C1p===0 ? 0 : ((Math.atan2(b1,a1p)*180/Math.PI)+360)%360;
+      const h2p = C2p===0 ? 0 : ((Math.atan2(b2,a2p)*180/Math.PI)+360)%360;
+
+      const dLp = L2-L1, dCp = C2p-C1p;
+      let dhp = 0;
+      if (C1p*C2p !== 0) {
+        const d = h2p-h1p;
+        dhp = Math.abs(d)<=180 ? d : d>180 ? d-360 : d+360;
+      }
+      const dHp = 2*Math.sqrt(C1p*C2p)*Math.sin(dhp/2*Math.PI/180);
+
+      const La=(L1+L2)/2, Ca=(C1p+C2p)/2;
+      let ha = h1p+h2p;
+      if (C1p*C2p !== 0) {
+        const d = h1p-h2p;
+        ha = Math.abs(d)<=180 ? (h1p+h2p)/2 : h1p+h2p<360 ? (h1p+h2p+360)/2 : (h1p+h2p-360)/2;
+      }
+
+      const r = Math.PI/180;
+      const T = 1
+        - 0.17*Math.cos((ha-30)*r)
+        + 0.24*Math.cos(2*ha*r)
+        + 0.32*Math.cos((3*ha+6)*r)
+        - 0.20*Math.cos((4*ha-63)*r);
+
+      const SL = 1 + 0.015*Math.pow(La-50,2)/Math.sqrt(20+Math.pow(La-50,2));
+      const SC = 1 + 0.045*Ca;
+      const SH = 1 + 0.015*Ca*T;
+
+      const Ca7 = Math.pow(Ca,7);
+      const RC = 2*Math.sqrt(Ca7/(Ca7+Math.pow(25,7)));
+      const hDiff = (ha-275)/25;
+      const dt = 30*Math.exp(-(hDiff*hDiff));
+      const RT = -Math.sin(2*dt*r)*RC;
+
+      return Math.sqrt(
+        Math.pow(dLp/SL,2) + Math.pow(dCp/SC,2) + Math.pow(dHp/SH,2)
+        + RT*(dCp/SC)*(dHp/SH)
+      );
+    }
+
+    function labToXyz(L, a, b) {
+      const fy = (L+16)/116, fx = a/500+fy, fz = fy-b/200;
+      const f = t => Math.pow(t,3) > 0.008856 ? Math.pow(t,3) : (t-16/116)/7.787;
+      return { x: 0.95047*f(fx), y: f(fy), z: 1.08883*f(fz) };
+    }
+
+    function xyzToLinear(x, y, z) {
+      return {
+        r:  3.2406*x - 1.5372*y - 0.4986*z,
+        g: -0.9689*x + 1.8758*y + 0.0415*z,
+        b:  0.0557*x - 0.2040*y + 1.0570*z,
+      };
+    }
+
+    const toSrgb = c => c <= 0.0031308 ? 12.92*c : 1.055*Math.pow(c, 1/2.4) - 0.055;
+
+    function inGamut(L, a, b) {
+      const { x, y, z } = labToXyz(L, a, b);
+      const lin = xyzToLinear(x, y, z);
+      return lin.r>=-0.001 && lin.r<=1.001 && lin.g>=-0.001 && lin.g<=1.001 && lin.b>=-0.001 && lin.b<=1.001;
+    }
+
+    function clampGamut(L, a, b) {
+      if (inGamut(L, a, b)) return { L, a, b };
+      const h = Math.atan2(b, a);
+      let C = Math.sqrt(a*a+b*b);
+      let lo = 0, hi = C;
+      for (let i = 0; i < 24; i++) {
+        const mid = (lo+hi)/2;
+        inGamut(L, mid*Math.cos(h), mid*Math.sin(h)) ? (lo=mid) : (hi=mid);
+      }
+      return { L, a: lo*Math.cos(h), b: lo*Math.sin(h) };
+    }
+
+    function labToCss(L, a, b) {
+      const { L:Lc, a:ac, b:bc } = clampGamut(L, a, b);
+      if (SUPPORTS_OKLCH) {
+        const { x, y, z } = labToXyz(Lc, ac, bc);
+        const l = 0.8189330101*x + 0.3618667424*y - 0.1288597137*z;
+        const m = 0.0329845436*x + 0.9293118715*y + 0.0361456387*z;
+        const s = 0.0482003018*x + 0.2643662691*y + 0.6338517070*z;
+        const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+        const L_ok = 0.2104542553*l_ + 0.7936177850*m_ - 0.0040720468*s_;
+        const a_ok = 1.9779984951*l_ - 2.4285922050*m_ + 0.4505937099*s_;
+        const b_ok = 0.0259040371*l_ + 0.7827717662*m_ - 0.8086757660*s_;
+        const C_ok = Math.sqrt(a_ok*a_ok+b_ok*b_ok);
+        const h_ok = ((Math.atan2(b_ok,a_ok)*180/Math.PI)+360)%360;
+        return `oklch(${L_ok.toFixed(5)} ${C_ok.toFixed(5)} ${h_ok.toFixed(3)})`;
+      } else {
+        const { x, y, z } = labToXyz(Lc, ac, bc);
+        const lin = xyzToLinear(x, y, z);
+        const r = Math.round(Math.max(0,Math.min(255,toSrgb(lin.r)*255)));
+        const g = Math.round(Math.max(0,Math.min(255,toSrgb(lin.g)*255)));
+        const bv= Math.round(Math.max(0,Math.min(255,toSrgb(lin.b)*255)));
+        return `rgb(${r},${g},${bv})`;
+      }
+    }
+
+    function randomBaseColor(regionIdx) {
+      const r = HUE_REGIONS[regionIdx];
+      if (r.neutral) {
+        // Near-achromatic: any hue, very low chroma, mid-high lightness
+        const h = Math.random() * 2 * Math.PI;
+        const L = 58 + Math.random() * 22;   // 58–80
+        const C = 2 + Math.random() * 8;      // 2–10 (near-grey)
+        return clampGamut(L, C*Math.cos(h), C*Math.sin(h));
+      }
+      let h;
+      if (r.wrap) {
+        const span = (360-r.lo)+r.hi;
+        h = (r.lo + Math.random()*span) % 360;
+      } else {
+        h = r.lo + Math.random()*(r.hi-r.lo);
+      }
+      const hRad = h*Math.PI/180;
+      const L = 52 + Math.random()*16;   // 52–68
+      const C = 32 + Math.random()*24;   // 32–56
+      return clampGamut(L, C*Math.cos(hRad), C*Math.sin(hRad));
+    }
+
+    function generateOddColor(baseColor, targetDE) {
+      const { L, a, b } = baseColor;
+      const region = HUE_REGIONS[g.region];
+
+      if (region.neutral) {
+        // Perturb L* for near-achromatic colors
+        const sign = Math.random() < 0.5 ? 1 : -1;
+        let lo = 0, hi = 45, dL = 10;
+        for (let i = 0; i < 40; i++) {
+          dL = (lo+hi)/2;
+          const L1 = Math.max(1, Math.min(99, L + sign*dL));
+          const de = deltaE2000(baseColor, { L:L1, a, b });
+          if (Math.abs(de-targetDE) < 0.05) break;
+          if (de < targetDE) lo=dL; else hi=dL;
+        }
+        const L1 = Math.max(1, Math.min(99, L + sign*dL));
+        return clampGamut(L1, a, b);
+      }
+
+      // Chromatic: perturb hue angle
+      const h0 = Math.atan2(b, a);
+      const C  = Math.sqrt(a*a+b*b);
+      const sign = Math.random() < 0.5 ? 1 : -1;
+      let lo = 0, hi = Math.PI, dh = Math.PI/4;
+      for (let i = 0; i < 40; i++) {
+        dh = (lo+hi)/2;
+        const h1 = h0+sign*dh;
+        const de = deltaE2000(baseColor, { L, a:C*Math.cos(h1), b:C*Math.sin(h1) });
+        if (Math.abs(de-targetDE) < 0.04) break;
+        if (de < targetDE) lo=dh; else hi=dh;
+      }
+      const h1 = h0+sign*dh;
+      return clampGamut(L, C*Math.cos(h1), C*Math.sin(h1));
+    }
+
+    function addNoise(c) {
+      const k = 0.12;
+      return {
+        L: c.L + (Math.random()-0.5)*2*k,
+        a: c.a + (Math.random()-0.5)*2*k,
+        b: c.b + (Math.random()-0.5)*2*k,
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // GAME STATE
+    // ═══════════════════════════════════════════════════════════
+
+    const g = {
+      screen:        'idle',
+      lives:         3,
+      score:         0,
+      streak:        0,
+      round:         0,
+      deltaE:        20,
+      region:        0,
+      baseColor:     null,
+      oddIdx:        -1,
+      swatches:      [],
+      t0:            0,
+      rafId:         null,
+      deadline:      0,
+      locked:        false,
+      regionStats:   null,
+      regionOrder:   [],
+      regionCursor:  0,
+    };
+
+    function isHard(r) { return HARD_REGIONS.has(r); }
+    function floorDE(r) { return isHard(r) ? 2.5 : 1.5; }
+
+    function nextRegion() {
+      if (g.regionCursor >= g.regionOrder.length) {
+        g.regionOrder = shuffle(Array.from({length: NUM_REGIONS}, (_,i) => i));
+        g.regionCursor = 0;
+      }
+      return g.regionOrder[g.regionCursor++];
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length-1; i>0; i--) {
+        const j = Math.floor(Math.random()*(i+1));
+        [a[i],a[j]] = [a[j],a[i]];
+      }
+      return a;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STORAGE
+    // ═══════════════════════════════════════════════════════════
+
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; }
+      catch { return null; }
+    }
+
+    function saveData(d) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+    }
+
+    function commitGame() {
+      const prev = loadData() || {
+        highScore: 0, totalRounds: 0, totalGames: 0,
+        regionBests: Array(NUM_REGIONS).fill(99), lastPlayed: null,
+      };
+      // Ensure array is long enough (migration from older saves)
+      while (prev.regionBests.length < NUM_REGIONS) prev.regionBests.push(99);
+      const isNewBest = g.score > prev.highScore;
+      prev.highScore    = Math.max(prev.highScore, g.score);
+      prev.totalRounds += g.round;
+      prev.totalGames++;
+      prev.lastPlayed   = new Date().toISOString();
+      g.regionStats.forEach((s, i) => {
+        if (s.minDE < prev.regionBests[i]) prev.regionBests[i] = s.minDE;
+      });
+      saveData(prev);
+      return isNewBest;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DOM HELPERS
+    // ═══════════════════════════════════════════════════════════
+
+    const $ = id => document.getElementById(id);
+
+    function showScreen(name) {
+      for (const s of ['idle','playing','gameover'])
+        $(`screen-${s}`).classList.toggle('hidden', s !== name);
+      g.screen = name;
+    }
+
+    let _toastTimer;
+    function toast(msg, ms = 2600) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
+    }
+
+    function ariaAnnounce(msg) { $('aria-live').textContent = msg; }
+
+    // ═══════════════════════════════════════════════════════════
+    // CORRECT FLASH
+    // ═══════════════════════════════════════════════════════════
+
+    function triggerCorrectFlash(swatchEl) {
+      // Color the flash based on the swatch's approximate hue
+      const region = HUE_REGIONS[g.region];
+      const flashEl = $('correct-flash');
+
+      // Pick a representative color for this region
+      let flashColor;
+      if (region.neutral) {
+        flashColor = 'rgba(200,200,200,0.22)';
+      } else {
+        // Use the base color converted to a semi-transparent background
+        const { L, a, b } = g.baseColor;
+        const css = labToCss(Math.min(L + 20, 90), a * 0.7, b * 0.7);
+        flashColor = css;
+      }
+
+      // Radial gradient emanating from swatch center
+      const rect = swatchEl.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top  + rect.height/2;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      // distance to farthest corner
+      const maxR = Math.sqrt(Math.max(cx,vw-cx)**2 + Math.max(cy,vh-cy)**2);
+
+      flashEl.style.background =
+        `radial-gradient(circle ${maxR}px at ${cx}px ${cy}px, ` +
+        `${flashColor} 0%, ` +
+        `rgba(82,201,138,0.18) 35%, ` +
+        `transparent 70%)`;
+
+      flashEl.classList.remove('active');
+      // Force reflow so animation restarts
+      void flashEl.offsetWidth;
+      flashEl.classList.add('active');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TIMER BAR
+    // ═══════════════════════════════════════════════════════════
+
+    function startTimer() {
+      stopTimer();
+      const bar  = $('timer-bar');
+      const wrap = $('timer-bar-wrap');
+      g.deadline = performance.now() + ROUND_TIME;
+
+      function tick(now) {
+        const rem = Math.max(0, g.deadline - now);
+        const pct = rem / ROUND_TIME;
+        bar.style.transform = `scaleX(${pct})`;
+        bar.style.background = rem < 1100 ? 'var(--danger)' : 'var(--accent)';
+        wrap.setAttribute('aria-valuenow', Math.round(pct*100));
+        if (rem <= 0) { handleWrong(true); return; }
+        g.rafId = requestAnimationFrame(tick);
+      }
+      g.rafId = requestAnimationFrame(tick);
+    }
+
+    function stopTimer() {
+      if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+      $('timer-bar').style.transform = 'scaleX(1)';
+      $('timer-bar').style.background = 'var(--accent)';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CORE GAME LOOP
+    // ═══════════════════════════════════════════════════════════
+
+    function startGame() {
+      g.lives        = 3;
+      g.score        = 0;
+      g.streak       = 0;
+      g.round        = 0;
+      g.deltaE       = 20;
+      g.locked       = false;
+      g.regionStats  = Array.from({length: NUM_REGIONS}, () => ({ attempts:0, correct:0, minDE:99 }));
+      g.regionOrder  = shuffle(Array.from({length: NUM_REGIONS}, (_,i) => i));
+      g.regionCursor = 0;
+      showScreen('playing');
+      updateHUD();
+      nextRound();
+    }
+
+    function nextRound() {
+      g.locked    = false;
+      g.round++;
+      g.region    = nextRegion();
+      g.baseColor = randomBaseColor(g.region);
+      const odd   = generateOddColor(g.baseColor, g.deltaE);
+      g.oddIdx    = Math.floor(Math.random()*SWATCHES);
+      g.swatches  = Array.from({length: SWATCHES}, (_,i) =>
+        i === g.oddIdx ? odd : addNoise(g.baseColor)
+      );
+      renderGrid();
+      clearRoundInfo();
+      g.t0 = performance.now();
+      startTimer();
+    }
+
+    function handleCorrect(ms, swatchEl) {
+      stopTimer();
+      g.locked = true;
+
+      const timeFactor       = Math.max(0.3, 1 - ms/ROUND_TIME);
+      const difficultyBonus  = 20 / g.deltaE;
+      const streakMultiplier = 1 + Math.min(g.streak,10)*0.1;
+      const pts              = Math.round(100 * timeFactor * difficultyBonus * streakMultiplier);
+
+      g.score  += pts;
+      g.streak++;
+
+      const floor = floorDE(g.region);
+      g.deltaE = Math.max(floor, g.deltaE*0.85);
+
+      const stat = g.regionStats[g.region];
+      stat.attempts++;
+      stat.correct++;
+      if (g.deltaE < stat.minDE) stat.minDE = g.deltaE;
+
+      swatchEl.classList.add('correct-anim');
+      triggerCorrectFlash(swatchEl);
+      updateHUD();
+      showScoreFloat(pts, g.streak, swatchEl);
+      showRoundInfo();
+      ariaAnnounce(`Correct! +${pts}. Score ${g.score}`);
+
+      setTimeout(() => { if (g.screen==='playing') nextRound(); }, ADVANCE_DELAY);
+    }
+
+    function handleWrong(timeout = false) {
+      if (g.locked) return;
+      stopTimer();
+      g.locked = true;
+
+      g.lives--;
+      g.streak = 0;
+      g.deltaE = Math.min(20, g.deltaE*1.4);
+
+      const stat = g.regionStats[g.region];
+      stat.attempts++;
+
+      revealOdd();
+      updateHUD();
+      ariaAnnounce(`${timeout?'Time up':'Wrong'}. Lives: ${g.lives}`);
+
+      if (g.lives <= 0) {
+        setTimeout(() => endGame(), ADVANCE_DELAY);
+      } else {
+        setTimeout(() => { if (g.screen==='playing') nextRound(); }, ADVANCE_DELAY);
+      }
+    }
+
+    function endGame() {
+      showScreen('gameover');
+      const newBest = commitGame();
+      renderGameOver(newBest);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // HUD
+    // ═══════════════════════════════════════════════════════════
+
+    function updateHUD() {
+      const livesEl = $('lives');
+      livesEl.textContent = '●'.repeat(g.lives) + '○'.repeat(Math.max(0,3-g.lives));
+      livesEl.setAttribute('aria-label', `${g.lives} of 3 lives remaining`);
+      $('score-display').textContent = g.score.toLocaleString();
+      const stEl = $('streak-display');
+      stEl.textContent = g.streak>=2 ? `×${g.streak}` : '';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SWATCH GRID
+    // ═══════════════════════════════════════════════════════════
+
+    function renderGrid() {
+      const grid = $('swatch-grid');
+      grid.innerHTML = '';
+      const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      g.swatches.forEach((col, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'swatch' + (rm ? '' : ' animate-in');
+        btn.style.backgroundColor = labToCss(col.L, col.a, col.b);
+        if (!rm) btn.style.animationDelay = `${i*30}ms`;
+        btn.setAttribute('role', 'gridcell');
+        btn.setAttribute('aria-label', `Swatch ${i+1}`);
+
+        btn.addEventListener('click', () => onTap(i, btn));
+        btn.addEventListener('keydown', e => {
+          if (e.key==='Enter'||e.key===' ') { e.preventDefault(); onTap(i,btn); }
+          const dirs = { ArrowRight:1, ArrowLeft:-1, ArrowDown:3, ArrowUp:-3 };
+          if (dirs[e.key]!=null) {
+            e.preventDefault();
+            grid.children[(i+dirs[e.key]+SWATCHES)%SWATCHES]?.focus();
+          }
+        });
+        grid.appendChild(btn);
+      });
+    }
+
+    function onTap(idx, el) {
+      if (g.locked) return;
+      const ms = performance.now() - g.t0;
+      if (idx === g.oddIdx) {
+        handleCorrect(ms, el);
+      } else {
+        el.classList.add('wrong-anim');
+        handleWrong(false);
+      }
+    }
+
+    function revealOdd() {
+      const btn = $('swatch-grid')?.children[g.oddIdx];
+      if (btn) { btn.style.outline='3px solid var(--success)'; btn.style.outlineOffset='2px'; }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ROUND INFO
+    // ═══════════════════════════════════════════════════════════
+
+    function showRoundInfo() {
+      const el   = $('round-info');
+      const name = HUE_REGIONS[g.region].name;
+      const de   = g.deltaE.toFixed(1);
+      const elite= g.deltaE <= floorDE(g.region) + 0.05;
+      el.textContent = elite
+        ? `ELITE · ${name.toUpperCase()}`
+        : `${name.toUpperCase()} · ΔE ${de}`;
+      el.classList.toggle('elite', elite);
+      el.style.opacity = '1';
+    }
+
+    function clearRoundInfo() {
+      const el = $('round-info');
+      el.textContent = '';
+      el.classList.remove('elite');
+      el.style.opacity = '0';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SCORE FLOAT
+    // ═══════════════════════════════════════════════════════════
+
+    function showScoreFloat(pts, streak, swatchEl) {
+      const rect = swatchEl.getBoundingClientRect();
+      const el   = document.createElement('div');
+      el.className = 'score-float';
+      el.textContent = `+${pts}${streak>=2 ? ` ×${streak}` : ''}`;
+      el.style.left = `${rect.left + rect.width/2}px`;
+      el.style.top  = `${rect.top + 4}px`;
+      document.body.appendChild(el);
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PLAYER RANK
+    // ═══════════════════════════════════════════════════════════
+
+    function getPlayerRank() {
+      const played = g.regionStats.filter(s => s.attempts > 0);
+      if (played.length === 0) return RANKS[RANKS.length - 1];
+      const bestDE = Math.min(...played.map(s => s.minDE));
+      return RANKS.find(r => bestDE <= r.maxDE) || RANKS[RANKS.length - 1];
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // GAME OVER SCREEN
+    // ═══════════════════════════════════════════════════════════
+
+    function renderGameOver(newBest) {
+      $('final-score').textContent = g.score.toLocaleString();
+      $('new-best').classList.toggle('hidden', !newBest);
+
+      const rank = getPlayerRank();
+      const rankEl = $('player-rank');
+      rankEl.textContent = rank.title;
+      rankEl.style.color = rank.color;
+      $('player-rank-sub').textContent = rank.sub;
+
+      // Weakness stats
+      const played = g.regionStats
+        .map((s,i) => ({...s,i}))
+        .filter(s => s.attempts > 0)
+        .sort((a,b) => b.minDE - a.minDE);
+
+      const statsEl = $('weakness-stats');
+      if (played.length >= 2) {
+        const worst = played[0], best = played[played.length-1];
+        const fmt = v => v>=99 ? '—' : v.toFixed(1);
+        statsEl.innerHTML =
+          `Hardest: <span>${HUE_REGIONS[worst.i].name}</span> (ΔE ${fmt(worst.minDE)})<br>` +
+          `Best:    <span>${HUE_REGIONS[best.i].name}</span>  (ΔE ${fmt(best.minDE)})`;
+      } else if (played.length === 1) {
+        const w = played[0];
+        statsEl.innerHTML = `<span>${HUE_REGIONS[w.i].name}</span> ΔE ${w.minDE.toFixed(1)}`;
+      } else {
+        statsEl.textContent = '';
+      }
+
+      renderHueWheel();
+      renderSciencePanel();
+    }
+
+    function weaknessScore(i) {
+      const s = g.regionStats[i];
+      if (s.attempts === 0) return null;
+      return Math.max(0, Math.min(1, (s.minDE - floorDE(i)) / (20 - floorDE(i))));
+    }
+
+    function renderHueWheel() {
+      const cx=100, cy=100, innerR=34;
+      const minOuter=46, maxOuter=84;
+      const segDeg=360/NUM_REGIONS, gap=2.5, d2r=Math.PI/180;
+
+      // Representative CSS color for each of the 9 regions
+      const repCss = HUE_REGIONS.map((r, idx) => {
+        if (r.neutral) return labToCss(70, 0, 0); // light grey
+        let h;
+        if (r.wrap) h = (r.lo + (360-r.lo+r.hi)/2) % 360;
+        else        h = (r.lo+r.hi)/2;
+        const hRad = h*d2r;
+        const { L,a,b } = clampGamut(60, 40*Math.cos(hRad), 40*Math.sin(hRad));
+        return labToCss(L,a,b);
+      });
+
+      let paths = '';
+      for (let i=0; i<NUM_REGIONS; i++) {
+        const startDeg = -90 + i*segDeg + gap/2;
+        const endDeg   = -90 + (i+1)*segDeg - gap/2;
+        const ws = weaknessScore(i);
+        const unplayed = ws===null;
+        const outerR = unplayed ? innerR+5 : minOuter + ws*(maxOuter-minOuter);
+        const fill   = unplayed ? '#2a2a35' : repCss[i];
+        const alpha  = unplayed ? 1 : 0.5+ws*0.5;
+
+        const sa=startDeg*d2r, ea=endDeg*d2r;
+        const x1=cx+innerR*Math.cos(sa), y1=cy+innerR*Math.sin(sa);
+        const x2=cx+outerR*Math.cos(sa), y2=cy+outerR*Math.sin(sa);
+        const x3=cx+outerR*Math.cos(ea), y3=cy+outerR*Math.sin(ea);
+        const x4=cx+innerR*Math.cos(ea), y4=cy+innerR*Math.sin(ea);
+        const laf=(endDeg-startDeg)>180?1:0;
+        paths +=
+          `<path d="M${x1.toFixed(2)},${y1.toFixed(2)} ` +
+          `L${x2.toFixed(2)},${y2.toFixed(2)} ` +
+          `A${outerR},${outerR} 0 ${laf} 1 ${x3.toFixed(2)},${y3.toFixed(2)} ` +
+          `L${x4.toFixed(2)},${y4.toFixed(2)} ` +
+          `A${innerR},${innerR} 0 ${laf} 0 ${x1.toFixed(2)},${y1.toFixed(2)} Z" ` +
+          `fill="${fill}" opacity="${alpha.toFixed(3)}"/>`;
+      }
+
+      const score = g.score.toLocaleString();
+      $('hue-wheel-wrap').innerHTML =
+        `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">` +
+        paths +
+        `<text x="${cx}" y="${cy-5}" text-anchor="middle" ` +
+        `font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#e8e8f0">${score}</text>` +
+        `<text x="${cx}" y="${cy+11}" text-anchor="middle" ` +
+        `font-family="system-ui,sans-serif" font-size="8" fill="#6a6a80">SCORE</text>` +
+        `</svg>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SCIENCE PANEL
+    // ═══════════════════════════════════════════════════════════
+
+    function renderSciencePanel() {
+      const el = $('science-panel');
+
+      // Compute best ΔE achieved, overall and per category
+      const played = g.regionStats.map((s,i) => ({...s,i})).filter(s => s.attempts > 0);
+      const rank   = getPlayerRank();
+
+      // Context-sensitive science facts based on rank / what happened
+      const facts = [];
+
+      // Fact 1: about CIEDE2000 and what their best ΔE means perceptually
+      const bestDE = played.length > 0 ? Math.min(...played.map(s => s.minDE)) : 20;
+      if (bestDE <= 2.2) {
+        facts.push({
+          label: `ΔE ${bestDE.toFixed(1)}`,
+          text: `<strong>Just noticeable difference (JND)</strong> for trained observers is ~1 ΔE. You pushed into that range — fewer than 1% of people can reliably distinguish colors this close.`,
+        });
+      } else if (bestDE <= 5) {
+        facts.push({
+          label: `ΔE ${bestDE.toFixed(1)}`,
+          text: `<strong>ΔE 2–4 is the "professional printing" threshold</strong> — color differences visible to a trained eye but not a casual observer. You're operating in that zone.`,
+        });
+      } else if (bestDE <= 10) {
+        facts.push({
+          label: `ΔE ${bestDE.toFixed(1)}`,
+          text: `<strong>ΔE 5–10 is perceptible at a glance</strong> to most people. The average untrained observer notices color differences in this range immediately.`,
+        });
+      } else {
+        facts.push({
+          label: `ΔE ${bestDE.toFixed(1)}`,
+          text: `<strong>ΔE above 10 is an obvious color difference</strong> visible to almost everyone. As you play more, the game narrows the gap — your threshold will improve.`,
+        });
+      }
+
+      // Fact 2: hardest hue region — MacAdam ellipses
+      const hardestPlayed = [...played].sort((a,b) => b.minDE - a.minDE)[0];
+      if (hardestPlayed) {
+        const rname = HUE_REGIONS[hardestPlayed.i].name;
+        if (hardestPlayed.i === 8) {
+          facts.push({
+            label: 'Neutral',
+            text: `<strong>Lightness discrimination</strong> (distinguishing greys) uses a different neural pathway than hue discrimination. It's processed by luminance-sensitive cells rather than opponent-color channels.`,
+          });
+        } else if ([2,3].includes(hardestPlayed.i)) {
+          facts.push({
+            label: rname,
+            text: `<strong>Yellow and yellow-green are perceptually tricky</strong> because the eye has no single cone type tuned to that range — yellow is encoded as a high red + high green signal, making fine differences harder to resolve.`,
+          });
+        } else if (hardestPlayed.i === 5) {
+          facts.push({
+            label: 'Cyan',
+            text: `<strong>Cyan is notoriously hard to discriminate</strong>. MacAdam's 1942 ellipses — the first scientific measurement of color JNDs — are largest in the cyan-green region of color space.`,
+          });
+        } else {
+          facts.push({
+            label: rname,
+            text: `<strong>${rname} was your hardest region.</strong> Human color sensitivity varies across the spectrum — the eye has more opponent-channel bandwidth for some hues than others.`,
+          });
+        }
+      }
+
+      // Fact 3: about the test itself
+      facts.push({
+        label: 'FM100',
+        text: `This game is inspired by the <strong>Farnsworth-Munsell 100 Hue Test</strong> (1943), still used clinically to detect color deficiency and measure color discrimination ability. The ΔE unit is CIEDE2000 — the international standard since 2001.`,
+      });
+
+      // Render
+      el.innerHTML =
+        `<h3>What you just experienced</h3>` +
+        facts.map(f =>
+          `<div class="science-fact">` +
+          `<div class="sci-de">${f.label}</div>` +
+          `<p>${f.text}</p>` +
+          `</div>`
+        ).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SHARE
+    // ═══════════════════════════════════════════════════════════
+
+    function buildShareText() {
+      let weakest=-1, worstDE=-1;
+      g.regionStats.forEach((s,i) => {
+        if (s.attempts>0 && s.minDE>worstDE) { worstDE=s.minDE; weakest=i; }
+      });
+      const rank = getPlayerRank();
+      const name = weakest>=0 ? HUE_REGIONS[weakest].name : '—';
+      const de   = weakest>=0 ? g.regionStats[weakest].minDE.toFixed(1) : '—';
+      return `ChromaSense: ${g.score.toLocaleString()} pts — ${rank.title}\n` +
+             `Weakest: ${name} (ΔE ${de})\nCan you beat me?`;
+    }
+
+    async function doShare() {
+      const text = buildShareText();
+      const url  = location.href;
+      try {
+        if (navigator.share) {
+          await navigator.share({ text, url });
+        } else {
+          await navigator.clipboard.writeText(`${text}\n${url}`);
+          toast('Copied to clipboard!');
+        }
+      } catch (e) {
+        if (e.name!=='AbortError') {
+          try {
+            await navigator.clipboard.writeText(`${text}\n${url}`);
+            toast('Copied to clipboard!');
+          } catch { toast('Share unavailable'); }
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // IDLE SCREEN
+    // ═══════════════════════════════════════════════════════════
+
+    function renderIdle() {
+      const data = loadData();
+      const el   = $('idle-stats');
+      if (data && data.totalGames > 0) {
+        el.textContent = `Best: ${data.highScore.toLocaleString()}  ·  Rounds: ${data.totalRounds}`;
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════
+
+    function init() {
+      renderIdle();
+      $('btn-play').addEventListener('click', startGame);
+      $('btn-retry').addEventListener('click', startGame);
+      $('btn-share').addEventListener('click', doShare);
+      document.addEventListener('keydown', e => {
+        if (e.key==='Enter'  && g.screen==='idle')     startGame();
+        if (e.key==='Escape' && g.screen==='gameover') { showScreen('idle'); renderIdle(); }
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
