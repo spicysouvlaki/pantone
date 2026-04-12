@@ -547,22 +547,21 @@
     const ROUND_TIME    = 4500;
     const SWATCHES      = 9;
     const ADVANCE_DELAY = 1000;
-    const NUM_REGIONS   = 9;
+    const NUM_REGIONS   = 8;
 
-    // 8 chromatic hue regions + 1 neutral/grey
+    // 8 chromatic hue regions matching the FM100 structure
     const HUE_REGIONS = [
-      { name: 'Red',          lo: 340, hi: 20,  wrap: true,  neutral: false },
-      { name: 'Orange',       lo: 20,  hi: 50,  wrap: false, neutral: false },
-      { name: 'Yellow',       lo: 50,  hi: 80,  wrap: false, neutral: false },
-      { name: 'Yellow-Green', lo: 80,  hi: 110, wrap: false, neutral: false },
-      { name: 'Green',        lo: 110, hi: 150, wrap: false, neutral: false },
-      { name: 'Cyan',         lo: 150, hi: 210, wrap: false, neutral: false },
-      { name: 'Blue',         lo: 210, hi: 270, wrap: false, neutral: false },
-      { name: 'Purple',       lo: 270, hi: 340, wrap: false, neutral: false },
-      { name: 'Neutral',      lo: 0,   hi: 360, wrap: false, neutral: true  },
+      { name: 'Red',          lo: 340, hi: 20,  wrap: true  },
+      { name: 'Orange',       lo: 20,  hi: 50,  wrap: false },
+      { name: 'Yellow',       lo: 50,  hi: 80,  wrap: false },
+      { name: 'Yellow-Green', lo: 80,  hi: 110, wrap: false },
+      { name: 'Green',        lo: 110, hi: 150, wrap: false },
+      { name: 'Cyan',         lo: 150, hi: 210, wrap: false },
+      { name: 'Blue',         lo: 210, hi: 270, wrap: false },
+      { name: 'Purple',       lo: 270, hi: 340, wrap: false },
     ];
 
-    const HARD_REGIONS = new Set([2, 3, 5, 8]); // Yellow, Yellow-Green, Cyan, Neutral
+    const HARD_REGIONS = new Set([2, 3, 5]); // Yellow, Yellow-Green, Cyan
 
     const SUPPORTS_OKLCH = CSS.supports('color', 'oklch(0.5 0.1 180)');
 
@@ -694,13 +693,6 @@
 
     function randomBaseColor(regionIdx) {
       const r = HUE_REGIONS[regionIdx];
-      if (r.neutral) {
-        // Near-achromatic: any hue, very low chroma, mid-high lightness
-        const h = Math.random() * 2 * Math.PI;
-        const L = 58 + Math.random() * 22;   // 58–80
-        const C = 2 + Math.random() * 8;      // 2–10 (near-grey)
-        return clampGamut(L, C*Math.cos(h), C*Math.sin(h));
-      }
       let h;
       if (r.wrap) {
         const span = (360-r.lo)+r.hi;
@@ -716,24 +708,8 @@
 
     function generateOddColor(baseColor, targetDE) {
       const { L, a, b } = baseColor;
-      const region = HUE_REGIONS[g.region];
 
-      if (region.neutral) {
-        // Perturb L* for near-achromatic colors
-        const sign = Math.random() < 0.5 ? 1 : -1;
-        let lo = 0, hi = 45, dL = 10;
-        for (let i = 0; i < 40; i++) {
-          dL = (lo+hi)/2;
-          const L1 = Math.max(1, Math.min(99, L + sign*dL));
-          const de = deltaE2000(baseColor, { L:L1, a, b });
-          if (Math.abs(de-targetDE) < 0.05) break;
-          if (de < targetDE) lo=dL; else hi=dL;
-        }
-        const L1 = Math.max(1, Math.min(99, L + sign*dL));
-        return clampGamut(L1, a, b);
-      }
-
-      // Chromatic: perturb hue angle
+      // Perturb hue angle, preserving L* and C*
       const h0 = Math.atan2(b, a);
       const C  = Math.sqrt(a*a+b*b);
       const sign = Math.random() < 0.5 ? 1 : -1;
@@ -820,7 +796,7 @@
         highScore: 0, totalRounds: 0, totalGames: 0,
         regionBests: Array(NUM_REGIONS).fill(99), lastPlayed: null,
       };
-      // Ensure array is long enough (migration from older saves)
+      // Ensure array is correct length
       while (prev.regionBests.length < NUM_REGIONS) prev.regionBests.push(99);
       const isNewBest = g.score > prev.highScore;
       prev.highScore    = Math.max(prev.highScore, g.score);
@@ -866,16 +842,9 @@
       const region = HUE_REGIONS[g.region];
       const flashEl = $('correct-flash');
 
-      // Pick a representative color for this region
-      let flashColor;
-      if (region.neutral) {
-        flashColor = 'rgba(200,200,200,0.22)';
-      } else {
-        // Use the base color converted to a semi-transparent background
-        const { L, a, b } = g.baseColor;
-        const css = labToCss(Math.min(L + 20, 90), a * 0.7, b * 0.7);
-        flashColor = css;
-      }
+      // Use the base color lightened as the flash tint
+      const { L, a, b } = g.baseColor;
+      const flashColor = labToCss(Math.min(L + 20, 90), a * 0.7, b * 0.7);
 
       // Radial gradient emanating from swatch center
       const rect = swatchEl.getBoundingClientRect();
@@ -1176,9 +1145,8 @@
       const minOuter=46, maxOuter=84;
       const segDeg=360/NUM_REGIONS, gap=2.5, d2r=Math.PI/180;
 
-      // Representative CSS color for each of the 9 regions
-      const repCss = HUE_REGIONS.map((r, idx) => {
-        if (r.neutral) return labToCss(70, 0, 0); // light grey
+      // Representative CSS color for each of the 8 regions
+      const repCss = HUE_REGIONS.map((r) => {
         let h;
         if (r.wrap) h = (r.lo + (360-r.lo+r.hi)/2) % 360;
         else        h = (r.lo+r.hi)/2;
@@ -1265,12 +1233,7 @@
       const hardestPlayed = [...played].sort((a,b) => b.minDE - a.minDE)[0];
       if (hardestPlayed) {
         const rname = HUE_REGIONS[hardestPlayed.i].name;
-        if (hardestPlayed.i === 8) {
-          facts.push({
-            label: 'Neutral',
-            text: `<strong>Lightness discrimination</strong> (distinguishing greys) uses a different neural pathway than hue discrimination. It's processed by luminance-sensitive cells rather than opponent-color channels.`,
-          });
-        } else if ([2,3].includes(hardestPlayed.i)) {
+        if ([2,3].includes(hardestPlayed.i)) {
           facts.push({
             label: rname,
             text: `<strong>Yellow and yellow-green are perceptually tricky</strong> because the eye has no single cone type tuned to that range — yellow is encoded as a high red + high green signal, making fine differences harder to resolve.`,
