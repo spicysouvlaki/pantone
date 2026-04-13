@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0f"/>
+      <stop offset="100%" stop-color="#111118"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="1" y="1" width="1198" height="628" fill="none" stroke="#2a2a35" stroke-width="2"/>
+
+  <!-- Left accent bar -->
+  <rect x="80" y="108" width="3" height="414" rx="1.5" fill="#7c6af5"/>
+
+  <!-- Title: CHROMA -->
+  <text x="108" y="208"
+        font-family="'Courier New', 'Lucida Console', monospace"
+        font-size="74" font-weight="700" letter-spacing="8" fill="#e8e8f0">CHROMA</text>
+  <!-- Title: SENSE -->
+  <text x="108" y="292"
+        font-family="'Courier New', 'Lucida Console', monospace"
+        font-size="74" font-weight="700" letter-spacing="8" fill="#e8e8f0">SENSE</text>
+
+  <!-- Subtitle -->
+  <text x="110" y="336"
+        font-family="system-ui, Arial, sans-serif"
+        font-size="17" letter-spacing="5" fill="#6a6a80">HOW SHARP ARE YOUR EYES</text>
+
+  <!-- Divider -->
+  <rect x="108" y="362" width="240" height="1" fill="#2a2a35"/>
+
+  <!-- Rank ladder -->
+  <text x="108" y="390" font-family="'Courier New', monospace" font-size="14" fill="#ffd700">● SAVANT</text>
+  <text x="108" y="414" font-family="'Courier New', monospace" font-size="14" fill="#7c6af5">● GIFTED</text>
+  <text x="108" y="438" font-family="'Courier New', monospace" font-size="14" fill="#52c98a">● AVERAGE</text>
+  <text x="108" y="462" font-family="'Courier New', monospace" font-size="14" fill="#e08a52">● FAILING ARTIST</text>
+  <text x="108" y="486" font-family="'Courier New', monospace" font-size="14" fill="#e05252">● POOR</text>
+
+  <!-- URL -->
+  <text x="108" y="560"
+        font-family="'Courier New', monospace"
+        font-size="13" fill="#3a3a50">spicysouvlaki.github.io/pantone</text>
+
+  <!-- Right: 3×3 swatch grid -->
+  <!-- Grid: 110×110 swatches, 12px gaps. Start: x=723 y=138 -->
+  <!-- Base color: #7c6af5  |  Odd (index 5, row 1 col 2): #a858f0 -->
+
+  <!-- Row 0 -->
+  <rect x="723" y="138" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <rect x="845" y="138" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <rect x="967" y="138" width="110" height="110" rx="11" fill="#7c6af5"/>
+
+  <!-- Row 1 -->
+  <rect x="723" y="260" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <rect x="845" y="260" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <!-- ODD SWATCH -->
+  <rect x="967" y="260" width="110" height="110" rx="11" fill="#a858f0"/>
+
+  <!-- Row 2 -->
+  <rect x="723" y="382" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <rect x="845" y="382" width="110" height="110" rx="11" fill="#7c6af5"/>
+  <rect x="967" y="382" width="110" height="110" rx="11" fill="#7c6af5"/>
+
+  <!-- Label below grid -->
+  <text x="900" y="528"
+        text-anchor="middle"
+        font-family="system-ui, Arial, sans-serif"
+        font-size="13" letter-spacing="4" fill="#6a6a80">FIND THE ODD ONE OUT</text>
+</svg>
